@@ -1,5 +1,5 @@
 # PHP-RestJSONClient
-A Restful PHP Class For Sending REST + JSON requests
+A Restful PHP Class For Sending REST + JSON requests. It uses php's native file_get_contents() with http stream contexts to handle requests, thus it does not require curl.
 
 ### Usage
 
