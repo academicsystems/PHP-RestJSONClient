@@ -24,6 +24,8 @@ if (version_compare(phpversion(), '5.3.0', '<'))
 		$timeout			- number of seconds to try for a connection
 		$protocol_version	- HTTP/1.0 or HTTP/1.1
 	
+	Important !! This class urlencodes everything for you except when you pass in a string for the url query.
+	
 	Example usage:
 
 	$myclient = new RestClient($method,$url,$headers,$bodyjson,files);
@@ -47,7 +49,7 @@ class RestJSONClient {
 	private $request = "";
 	private $response = "";
 	
-	private $timeout = 2;
+	private $timeout = 5;
 	private $protocol_version = "1.0";
 
 	private $scheme = "";
@@ -78,10 +80,10 @@ class RestJSONClient {
 		$query = "?";
 		foreach($data as $key => $value)
 		{
-			$query .= urlencode($key) . "=" . urlencode($value);
+			$query .= urlencode($key) . "=" . urlencode($value) . "&";
 		}
 		
-		return $query;
+		return substr($query, 0, -1);
 	}
 	
 	public function get_request()
@@ -193,13 +195,13 @@ class RestJSONClient {
 	{
 		/*
 			https://tools.ietf.org/html/rfc2616
-			OPTIONS	body - true		...future extensions to HTTP might use the OPTIONS body...
-			GET		body - false	...GET method means retrieve whatever information... ...is identified by the Request-URI...
-			HEAD	body - false	...HEAD method is identical to GET...
-			POST	body - true		...POST method is used to request that the origin server accept the entity enclosed in the request...
-			PUT		body - true		...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
-			DELETE	body - false	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
-			TRACE 	body - true		...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
+			OPTIONS body - true		...future extensions to HTTP might use the OPTIONS body...
+			GET     body - false	...GET method means retrieve whatever information... ...is identified by the Request-URI...
+			HEAD    body - false	...HEAD method is identical to GET...
+			POST    body - true		...POST method is used to request that the origin server accept the entity enclosed in the request...
+			PUT	    body - true		...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
+			DELETE  body - false	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
+			TRACE   body - true		...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
 		*/
 		if(!empty($this->bodyjson))
 		{
@@ -217,19 +219,18 @@ class RestJSONClient {
 		
 		/*
 			https://tools.ietf.org/html/rfc2616
-			OPTIONS	query - true	...OPTIONS method represents a request... ...identified by the Request-URI...
-			GET		query - true	...GET method means retrieve whatever information... ...is identified by the Request-URI...
-			HEAD	query - true	...HEAD method is identical to GET...
-			POST	query - false	...POST method is used to... ...accept the entity enclosed... ...identified by the Request-URI in the Request-Line...
-			PUT		query - false	...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
-			DELETE	query - false	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
-			TRACE 	query - true	...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
+			OPTIONS query - true	...OPTIONS method represents a request... ...identified by the Request-URI...
+			GET	    query - true	...GET method means retrieve whatever information... ...is identified by the Request-URI...
+			HEAD    query - true	...HEAD method is identical to GET...
+			POST    query - false	...POST method is used to... ...accept the entity enclosed... ...identified by the Request-URI in the Request-Line...
+			PUT	    query - false	...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
+			DELETE  query - true	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
+			TRACE   query - true	...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
 		*/
 		if(!empty($this->query))
 		{
 			switch($this->method)
 			{
-				case "DELETE":
 				case "POST":
 				case "PUT":
 					trigger_error("RestJSONClient Indeterminate Request, {$this->method} method should not be used with query string ::", E_USER_WARNING);
@@ -634,7 +635,7 @@ class RestJSONClient {
 	
 	public function get_url()
 	{
-		return $this->scheme . urlencode($this->user) . $this->pass . $this->host . $this->port . $this->path . urlencode($this->query) . urlencode($this->frag);
+		return $this->scheme . $this->user . $this->pass . $this->host . $this->port . $this->path . $this->query . $this->frag;
 	}
 	
 	public function set_url_scheme($scheme)
@@ -729,7 +730,30 @@ class RestJSONClient {
 	{
 		if(!empty($query))
 		{
-			$this->query = "?" . urlencode($query);
+			if(is_string($query))
+			{
+				if($query[0] == "?")
+				{
+					$this->query = $query;
+				}
+				else
+				{
+					$this->query = "?" . $query;
+				}
+			}
+			else if(is_array($query))
+			{
+				$this->query = '?';
+				foreach($query as $key => $val)
+				{
+					$this->query .= urlencode($keyval[0]) . '=' . urlencode($keyval[1]) . '&';
+				}
+				$this->query = substr($this->query, 0, -1);
+			}
+			else
+			{
+				throw new Exception("Unable to parse string in set_url_query(), must be associative array, or query string.");
+			}
 		}
 	}
 	
