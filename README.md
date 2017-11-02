@@ -29,3 +29,8 @@ $response = $myclient->send();
 ### Notes
 
 The client supports Basic Auth. It can handle all typical HTTP headers except for CONNECTION.
+
+### Versions
+
+v1.0 - initial version
+v1.1 - send() no longer responds with just the response body. it responds with an array of response data, including status, headers, & body.

@@ -1,7 +1,7 @@
 <?php
 
 /*
-	v.1.0
+	v.1.1
 	
 	More information on constructing requests in php can be found at:
 	http://php.net/manual/en/context.http.php
@@ -47,7 +47,9 @@ class RestJSONClient {
 	private $method = "";
 	
 	private $request = "";
-	private $response = "";
+	
+	private $response_head = array();
+	private $response_body = "";
 	
 	private $timeout = 5;
 	private $protocol_version = "1.0";
@@ -195,13 +197,13 @@ class RestJSONClient {
 	{
 		/*
 			https://tools.ietf.org/html/rfc2616
-			OPTIONS body - true		...future extensions to HTTP might use the OPTIONS body...
-			GET     body - false	...GET method means retrieve whatever information... ...is identified by the Request-URI...
-			HEAD    body - false	...HEAD method is identical to GET...
-			POST    body - true		...POST method is used to request that the origin server accept the entity enclosed in the request...
-			PUT	    body - true		...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
-			DELETE  body - false	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
-			TRACE   body - true		...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
+			OPTIONS	body - true		...future extensions to HTTP might use the OPTIONS body...
+			GET		body - false	...GET method means retrieve whatever information... ...is identified by the Request-URI...
+			HEAD	body - false	...HEAD method is identical to GET...
+			POST	body - true		...POST method is used to request that the origin server accept the entity enclosed in the request...
+			PUT		body - true		...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
+			DELETE	body - false	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
+			TRACE 	body - true		...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
 		*/
 		if(!empty($this->bodyjson))
 		{
@@ -219,18 +221,19 @@ class RestJSONClient {
 		
 		/*
 			https://tools.ietf.org/html/rfc2616
-			OPTIONS query - true	...OPTIONS method represents a request... ...identified by the Request-URI...
-			GET	    query - true	...GET method means retrieve whatever information... ...is identified by the Request-URI...
-			HEAD    query - true	...HEAD method is identical to GET...
-			POST    query - false	...POST method is used to... ...accept the entity enclosed... ...identified by the Request-URI in the Request-Line...
-			PUT	    query - false	...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
-			DELETE  query - true	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
-			TRACE   query - true	...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
+			OPTIONS	query - true	...OPTIONS method represents a request... ...identified by the Request-URI...
+			GET		query - true	...GET method means retrieve whatever information... ...is identified by the Request-URI...
+			HEAD	query - true	...HEAD method is identical to GET...
+			POST	query - false	...POST method is used to... ...accept the entity enclosed... ...identified by the Request-URI in the Request-Line...
+			PUT		query - false	...PUT method requests that the enclosed entity be stored under the supplied Request-URI...
+			DELETE	query - false	...DELETE method requests that the origin server delete the resource identified by the Request-URI...
+			TRACE 	query - true	...TRACE method is used to invoke a remote, application-layer loop-back of the request message...
 		*/
 		if(!empty($this->query))
 		{
 			switch($this->method)
 			{
+				case "DELETE":
 				case "POST":
 				case "PUT":
 					trigger_error("RestJSONClient Indeterminate Request, {$this->method} method should not be used with query string ::", E_USER_WARNING);
@@ -819,9 +822,24 @@ class RestJSONClient {
 		/* create stream, send request, return response */
 		$context  = stream_context_create($options);
 
-		$this->response = file_get_contents($url, false, $context);
+		$this->response_body = file_get_contents($url, false, $context);
+		$this->response_head = $http_response_header;
 		
-		return $this->response;
+		try {
+			$rdata = explode(' ', $http_response_header[0]);
+			$status_line = array('version' => $rdata[0],'code' => $rdata[1], 'reason' => $rdata[2]);
+			unset($http_response_header[0]);
+			
+			$response_headers = array();
+			foreach($http_response_header as $key => $value) {
+				$parts = explode(':', $value, 2);
+				$response_headers[$parts[0]] = $parts[1];
+			}
+		} catch(Exception $e) {
+			$status_line = null;
+			$response_headers = null;
+		}
+		
+		return array('status-line' => $status_line, 'headers' => $response_headers, 'body' => $this->response_body);
 	}
 }
-
